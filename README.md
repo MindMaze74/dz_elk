@@ -81,8 +81,6 @@
 
 ![Скриншот-8](https://github.com/MindMaze74/dz_elk/blob/main/img/8.png)
 
-![Скриншот-9](https://github.com/MindMaze74/dz_elk/blob/main/img/9.png)
-
 *Приведите скриншот интерфейса Kibana, на котором видны логи Nginx, которые были отправлены через Filebeat.*
 
 
