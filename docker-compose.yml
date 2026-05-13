@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
+    container_name: dz-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - cluster.name=${CLUSTER_NAME}
+      - "ES_JAVA_OPTS=${ES_JAVA_OPTS}"
+    ports:
+      - "${ELASTIC_PORT}:9200"
+    volumes:
+      - ./data/elasticsearch:/usr/share/elasticsearch/data
+      - ./configs/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    networks:
+      - elk-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ELK_VERSION}
+    container_name: dz-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:${ELASTIC_PORT}
+    ports:
+      - "${KIBANA_PORT}:5601"
+    volumes:
+      - ./configs/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - elk-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5601/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  nginx-logstash:
+    image: nginx:alpine
+    container_name: dz-nginx-logstash
+    ports:
+      - "${NGINX_PORT}:80"
+    volumes:
+      - ./configs/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./data/nginx-logs:/var/log/nginx
+    networks:
+      - elk-net
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:${ELK_VERSION}
+    container_name: dz-logstash
+    volumes:
+      - ./configs/logstash/pipeline/nginx.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - ./data/nginx-logs:/var/log/nginx:ro
+    ports:
+      - "5000:5000"
+      - "9600:9600"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - elk-net
+
+  nginx-filebeat:
+    image: nginx:alpine
+    container_name: dz-nginx-filebeat
+    ports:
+      - "8080:80"
+    volumes:
+      - ./configs/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./data/nginx-logs-filebeat:/var/log/nginx
+    networks:
+      - elk-net
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:${ELK_VERSION}
+    container_name: dz-filebeat
+    user: root
+    volumes:
+      - ./configs/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./data/nginx-logs-filebeat:/var/log/nginx:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - elk-net
+
+networks:
+  elk-net:
+    driver: bridge

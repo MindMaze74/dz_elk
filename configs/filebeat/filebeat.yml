@@ -1,0 +1,24 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/nginx/access.log
+  tags: ["nginx-access", "filebeat"]
+  fields:
+    collector: filebeat
+    service: nginx
+  fields_under_root: true
+
+output.elasticsearch:
+  hosts: ['http://elasticsearch:9200']
+  index: "nginx-logs-filebeat-%{+yyyy.MM.dd}"
+  worker: 2
+
+setup.template.name: "nginx-logs-filebeat"
+setup.template.pattern: "nginx-logs-filebeat-*"
+setup.ilm.enabled: false
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_docker_metadata: ~
